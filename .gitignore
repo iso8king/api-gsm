@@ -1,3 +1,25 @@
-node_modules
-*.pdf
+# Dependencies
+node_modules/
+
+# Environment variables and secrets
 .env
+.env.test
+.env*.local
+docker/init.sql
+
+# Test coverage
+coverage/
+
+# Uploaded assets
+assets/invoice/*
+!.gitkeep
+!test/fixtures/*.pdf
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS and IDE files
+.DS_Store
+.vscode/
+.idea/
