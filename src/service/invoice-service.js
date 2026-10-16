@@ -1,7 +1,7 @@
 import { prismaClient } from "../application/database.js";
 import { validate } from "../validation/validate.js";
 import { responseError } from "../error/response-error.js";
-import { createInvoiceValidation } from "../validation/invoice-validation.js";
+import { createInvoiceValidation, invoiceCodeValidation } from "../validation/invoice-validation.js";
 import { sendAccAndInvoice, sendInvoiceOnly } from "../application/mailer.js";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
@@ -74,6 +74,52 @@ const createInvoice = async (payload, adminId) => {
     }
 };
 
+const getInvoice = async(searhQuery, id_user) => {
+    searhQuery = validate(invoiceCodeValidation, searhQuery);
+
+    const idx = searhQuery.lastIndexOf(".");
+
+    if (idx === -1) throw new responseError(404, "Invoice code not valid!");
+
+    const invoiceNumber = searhQuery.slice(0, idx);
+    const nominal = Number(searhQuery.slice(idx + 1));
+
+    if(!Number.isInteger(nominal)) throw new responseError(404, "Invoice code not valid!");
+
+    const invoice = await prismaClient.invoice.findFirst({
+        where : {
+            invoiceNumber,
+            customerId : id_user,
+            total : {gte : nominal, lt : nominal + 1}
+        }, include : {
+            createdBy : {
+                select : {
+                    name : true
+                }
+            }
+        }
+    });
+
+    if (!invoice) throw new responseError(404, "Invoice code not valid!");
+
+    return invoice;
+}
+
+const getInvoicePdf = async (invoiceId, user) => {
+    const invoice = await prismaClient.invoice.findUnique({
+        where: { id: invoiceId },
+        select: { invoiceNumber: true, pdf: true, customerId: true },
+    });
+
+    if (!invoice || (user.role !== "admin" && invoice.customerId !== user.id)) {
+        throw new responseError(404, "Invoice not found!");
+    }
+
+    return invoice;
+};
+
 export default { 
-    createInvoice 
+    createInvoice,
+    getInvoice,
+    getInvoicePdf
 }

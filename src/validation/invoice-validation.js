@@ -9,3 +9,5 @@ export const createInvoiceValidation = Joi.object({
     status : Joi.string().valid("lunas", "belum_lunas").default("belum_lunas"),
     pdf : Joi.string().required()
 });
+
+export const invoiceCodeValidation = Joi.string().required();

@@ -6,6 +6,8 @@ import invoiceController from "../controller/invoice-controller.js";
 const invoiceRouter = express.Router();
 
 invoiceRouter.post('/api/invoice/create', [authMiddleware, roleMiddleware(['admin']), uploadInvoice.single("pdf")], invoiceController.createInvoiceC)
+invoiceRouter.get('/api/invoice/get', [authMiddleware], invoiceController.getInvoiceC)
+invoiceRouter.get('/api/invoice/download/:id', [authMiddleware], invoiceController.getInvoicePdfC)
 
 export {
     invoiceRouter

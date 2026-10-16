@@ -1,5 +1,13 @@
 import { responseError } from "../error/response-error.js";
 import invoiceService from "../service/invoice-service.js";
+import { fileURLToPath } from 'url';
+import path from "path";
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const pdfDirInvoice = path.join(__dirname, '../../assets/invoice');
+
 
 /**
  * @openapi
@@ -107,6 +115,150 @@ const createInvoiceC = async(req,res,next) => {
     }
 }
 
+/**
+ * @openapi
+ * /api/invoice/get:
+ *   get:
+ *     summary: Verifikasi kode invoice
+ *     description: >
+ *       Memverifikasi kode pembayaran invoice (format: `{invoiceNumber}.{nominal}`,
+ *       contoh: `INV-0003/0009.1500000`). Invoice hanya dikembalikan jika
+ *       invoiceNumber cocok, nominal cocok dengan total, DAN invoice tersebut
+ *       milik user yang sedang login. Berguna untuk memvalidasi kode pembayaran
+ *       yang dikirim ke email pelanggan.
+ *     tags: [Invoices]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Kode invoice, format `{invoiceNumber}.{nominal}`.
+ *         example: INV-0003/0009.1500000
+ *     responses:
+ *       200:
+ *         description: Kode invoice valid. Data invoice dikembalikan beserta nama petugas pembuat.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   allOf:
+ *                     - $ref: '#/components/schemas/InvoiceResponse'
+ *                     - type: object
+ *                       properties:
+ *                         createdBy:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *                               example: Ridho Firdaus
+ *       400:
+ *         description: Parameter `search` tidak ada / tidak valid.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Belum login / token tidak valid.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: "Invoice code not valid! — format kode salah, nominal tidak cocok, atau invoice bukan milik user ini."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Kesalahan server.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+const getInvoiceC = async(req,res,next) => {
+    try {
+        const id_user = req.user.id;
+        const result = await invoiceService.getInvoice(req.query.search, id_user);
+
+        res.status(200).json({
+            data : result
+        })
+    } catch (e) {
+        next(e);        
+    }
+}
+
+/**
+ * @openapi
+ * /api/invoice/download/{id}:
+ *   get:
+ *     summary: Download PDF invoice
+ *     description: >
+ *       Mengunduh file PDF invoice berdasarkan ID. Admin dapat mengunduh invoice milik siapa saja,
+ *       sedangkan partner hanya bisa mengunduh invoice miliknya sendiri (selain itu dianggap tidak ada).
+ *       Respons sukses berupa file PDF (attachment) dengan nama `invoice-{invoiceNumber}.pdf`.
+ *     tags: [Invoices]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID invoice.
+ *         example: clxxxxxxx
+ *     responses:
+ *       200:
+ *         description: File PDF invoice (attachment download).
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         description: Belum login / token tidak valid.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: "Invoice not found! / File not found! — ID tidak ada, bukan milik user (bukan admin), atau file PDF hilang dari storage."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Kesalahan server.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+const getInvoicePdfC = async(req,res,next) => {
+    try {
+        const invoice = await invoiceService.getInvoicePdf(req.params.id, req.user);
+
+        const filePath = path.join(pdfDirInvoice, path.basename(invoice.pdf));
+
+        if (!fs.existsSync(filePath)) {
+            throw new responseError(404, "File not found!");
+        }
+
+        res.download(filePath, `invoice-${invoice.invoiceNumber}.pdf`);
+    } catch (e) {
+        next(e);        
+    }
+}
+
 export default{
-    createInvoiceC
+    createInvoiceC,
+    getInvoiceC,
+    getInvoicePdfC
 }
