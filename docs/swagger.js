@@ -21,6 +21,7 @@ const swaggerDefinition = {
   tags: [
     { name: "Users", description: "Manajemen user" },
     { name: "Auth", description: "Autentikasi & token" },
+    { name: "Invoices", description: "Manajemen invoice (admin)" },
   ],
   components: {
     schemas: {
@@ -107,6 +108,23 @@ const swaggerDefinition = {
             type: "string",
             example: "Credentials Wrong!",
           },
+        },
+      },
+      InvoiceResponse: {
+        type: "object",
+        properties: {
+          id: { type: "string", example: "clxxxxxxx" },
+          invoiceNumber: { type: "string", example: "INV-0003/0009" },
+          email: { type: "string", format: "email", example: "budi@example.com" },
+          customerName: { type: "string", example: "Budi Santoso" },
+          total: { type: "number", example: 1500000 },
+          issueDate: { type: "string", format: "date-time", example: "2026-10-16T00:00:00.000Z" },
+          status: { type: "string", enum: ["lunas", "belum_lunas"], example: "belum_lunas" },
+          pdf: { type: "string", example: "1739xxxxx-invoice.pdf" },
+          customerId: { type: "string", example: "clxxxxxxx", description: "ID akun pelanggan (dibuat otomatis jika email belum terdaftar)." },
+          createdById: { type: "string", example: "clxxxxxxx", description: "ID admin yang membuat invoice." },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
         },
       },
     },

@@ -10,6 +10,7 @@ import { dirname } from "path"
 import { errorMiddleware } from "../middleware/error-middleware.js"
 import { publicRouter } from "../routes/public-api.js"
 import { swaggerSpec } from "../../docs/swagger.js"
+import { invoiceRouter } from "../routes/api.js"
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -36,11 +37,12 @@ const corsOptions = {
 web.use(cors(corsOptions));
 web.use(express.json());
 web.use(cookieParser());
-web.use(publicRouter)
+web.use(publicRouter);
+web.use(invoiceRouter);
 
 
 web.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: "API GSM Docs",
 }));
 
-web.use(errorMiddleware)
+web.use(errorMiddleware);
