@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: gsm_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gsm_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - gsm_pgdata:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro,Z
+
+volumes:
+  gsm_pgdata:

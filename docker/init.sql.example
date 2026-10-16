@@ -1,0 +1,26 @@
+-- Create migration user with superuser permissions for schema management
+CREATE ROLE gsm_prisma_migrator WITH LOGIN SUPERUSER PASSWORD 'migrator_dev_password';
+
+-- Create runtime user for application operations
+CREATE ROLE gsm_user WITH LOGIN PASSWORD 'runtime_dev_password';
+
+-- Grant access on database
+GRANT ALL PRIVILEGES ON DATABASE gsm_db TO gsm_prisma_migrator;
+GRANT ALL PRIVILEGES ON DATABASE gsm_db TO gsm_user;
+
+-- Grant schema permissions
+GRANT ALL ON SCHEMA public TO gsm_prisma_migrator;
+GRANT ALL ON SCHEMA public TO gsm_user;
+
+-- Set default permissions on schema public
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO gsm_prisma_migrator;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO gsm_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO gsm_prisma_migrator;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO gsm_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TYPES TO gsm_prisma_migrator;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TYPES TO gsm_user;
+
+-- Ensure objects created by gsm_prisma_migrator during migrations are accessible to gsm_user
+ALTER DEFAULT PRIVILEGES FOR ROLE gsm_prisma_migrator IN SCHEMA public GRANT ALL ON TABLES TO gsm_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE gsm_prisma_migrator IN SCHEMA public GRANT ALL ON SEQUENCES TO gsm_user;
+ALTER DEFAULT PRIVILEGES FOR ROLE gsm_prisma_migrator IN SCHEMA public GRANT ALL ON TYPES TO gsm_user;
