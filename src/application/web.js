@@ -2,11 +2,14 @@ import express from "express"
 import dotenv from "dotenv"
 import cookieParser from "cookie-parser"
 import cors from "cors"
+import multer from "multer"
+import swaggerUi from "swagger-ui-express"
 import path from "path"
 import { fileURLToPath } from "url"
 import { dirname } from "path"
 import { errorMiddleware } from "../middleware/error-middleware.js"
 import { publicRouter } from "../routes/public-api.js"
+import { swaggerSpec } from "../../docs/swagger.js"
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -34,5 +37,10 @@ web.use(cors(corsOptions));
 web.use(express.json());
 web.use(cookieParser());
 web.use(publicRouter)
+
+
+web.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: "API GSM Docs",
+}));
 
 web.use(errorMiddleware)
