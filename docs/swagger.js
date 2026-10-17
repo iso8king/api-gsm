@@ -127,6 +127,39 @@ const swaggerDefinition = {
           updatedAt: { type: "string", format: "date-time" },
         },
       },
+      InvoicePagingResponse: {
+        type: "object",
+        properties: {
+          paging: {
+            type: "object",
+            properties: {
+              page: { type: "integer", example: 1 },
+              totalItems: { type: "integer", example: 42 },
+              totalPage: { type: "integer", example: 5 },
+            },
+          },
+          data: {
+            type: "array",
+            items: {
+              allOf: [
+                { $ref: "#/components/schemas/InvoiceResponse" },
+                {
+                  type: "object",
+                  properties: {
+                    customer: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string", example: "clxxxxxxx" },
+                        name: { type: "string", example: "Budi Santoso" },
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      },
     },
   },
 };

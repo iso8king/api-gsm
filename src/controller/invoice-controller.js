@@ -257,6 +257,60 @@ const getInvoicePdfC = async(req,res,next) => {
     }
 }
 
+/**
+ * @openapi
+ * /api/invoice/{id}/delete:
+ *   delete:
+ *     summary: Hapus invoice
+ *     description: Menghapus invoice berdasarkan ID. Hanya admin yang boleh menghapus.
+ *     tags: [Invoices]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           maxLength: 36
+ *         description: ID invoice yang akan dihapus.
+ *         example: clxxxxxxx
+ *     responses:
+ *       200:
+ *         description: Invoice berhasil dihapus.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: string
+ *                   example: OK
+ *       401:
+ *         description: Belum login / token tidak valid.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Bukan admin (endpoint hanya untuk role admin).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: "Invoice Not Valid! — ID invoice tidak ditemukan."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Kesalahan server.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 const deleteInvoiceC = async(req,res,next) => {
     try {
         const result = await invoiceService.deleteInvoice(req.params.id);
@@ -268,6 +322,59 @@ const deleteInvoiceC = async(req,res,next) => {
     }
 }
 
+/**
+ * @openapi
+ * /api/invoice/get/all:
+ *   get:
+ *     summary: Daftar semua invoice (paginated)
+ *     description: >
+ *       Mengambil daftar semua invoice dengan pagination, diurutkan dari yang terbaru
+ *       (orderBy createdAt desc). Setiap item disertai data akun pelanggan (id & name).
+ *     tags: [Invoices]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - in: query
+ *         name: size
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: Daftar invoice beserta info pagination.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InvoicePagingResponse'
+ *       400:
+ *         description: Query pagination tidak valid (mis. page < 1 atau size > 100).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Belum login / token tidak valid.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Kesalahan server.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 const getAllInvoiceC = async(req,res,next) => {
     try {
         const pagingConfig = {};
@@ -282,6 +389,110 @@ const getAllInvoiceC = async(req,res,next) => {
     }
 }
 
+/**
+ * @openapi
+ * /api/invoice/{id}/update:
+ *   patch:
+ *     summary: Update invoice
+ *     description: >
+ *       Mengubah sebagian atau seluruh data invoice. Semua field opsional — hanya field
+ *       yang dikirim yang diubah. Upload file PDF (multipart/form-data) opsional;
+ *       jika di-upload, file lama otomatis dihapus dari storage.
+ *       PERILAKU KHUSUS: jika field `email` diubah ke email yang berbeda, kredensial
+ *       akun pelanggan di-reset (username & password baru digenerate) dan dikirim ke email baru.
+ *     tags: [Invoices]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID invoice yang akan diubah.
+ *         example: clxxxxxxx
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               invoiceNumber:
+ *                 type: string
+ *                 example: INV-0003/0010
+ *               customerName:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: Budi Santoso
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 maxLength: 100
+ *                 description: Jika berubah, kredensial akun pelanggan di-reset & dikirim ke email baru.
+ *                 example: budi-baru@example.com
+ *               total:
+ *                 type: number
+ *                 format: double
+ *                 example: 1750000
+ *               issueDate:
+ *                 type: string
+ *                 format: date-time
+ *                 example: 2026-10-17
+ *               status:
+ *                 type: string
+ *                 enum: [lunas, belum_lunas]
+ *               pdf:
+ *                 type: string
+ *                 format: binary
+ *                 description: File PDF baru (opsional). PDF lama akan dihapus.
+ *     responses:
+ *       200:
+ *         description: Invoice berhasil diperbarui.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   $ref: '#/components/schemas/InvoiceResponse'
+ *       400:
+ *         description: "Tidak ada data untuk diupdate / payload tidak valid (validasi Joi)."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Belum login / token tidak valid.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Bukan admin (endpoint hanya untuk role admin).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: "Invoice not found! — ID invoice tidak ditemukan."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: Invoice number, email, atau username sudah ada.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Kesalahan server.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 const updateInvoiceC = async(req,res,next) => {
     try {
         const request = req.body;
