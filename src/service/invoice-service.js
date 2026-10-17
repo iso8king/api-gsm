@@ -1,10 +1,17 @@
 import { prismaClient } from "../application/database.js";
 import { validate } from "../validation/validate.js";
 import { responseError } from "../error/response-error.js";
-import { createInvoiceValidation, invoiceCodeValidation } from "../validation/invoice-validation.js";
+import { createInvoiceValidation, getAllValidation, invoiceCodeValidation, updateInvoiceValidation } from "../validation/invoice-validation.js";
 import { sendAccAndInvoice, sendInvoiceOnly } from "../application/mailer.js";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
+import { fileURLToPath } from "url";
+import path from "path";
+import fs from "fs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const pdfDirInvoice = path.join(__dirname, '../../assets/invoice');
 
 const generateBytes = (length) =>
     crypto.randomBytes(Math.ceil(length / 2)).toString("hex").slice(0, length);
@@ -74,7 +81,7 @@ const createInvoice = async (payload, adminId) => {
     }
 };
 
-const getInvoice = async(searhQuery, id_user) => {
+const getInvoice = async(searhQuery, user) => {
     searhQuery = validate(invoiceCodeValidation, searhQuery);
 
     const idx = searhQuery.lastIndexOf(".");
@@ -86,12 +93,17 @@ const getInvoice = async(searhQuery, id_user) => {
 
     if(!Number.isInteger(nominal)) throw new responseError(404, "Invoice code not valid!");
 
-    const invoice = await prismaClient.invoice.findFirst({
-        where : {
+    const where = {
             invoiceNumber,
-            customerId : id_user,
             total : {gte : nominal, lt : nominal + 1}
-        }, include : {
+    }
+
+    if(user.role !== "admin") where.customerId = user.id;
+
+
+    const invoice = await prismaClient.invoice.findFirst({
+        where, 
+        include : {
             createdBy : {
                 select : {
                     name : true
@@ -118,8 +130,140 @@ const getInvoicePdf = async (invoiceId, user) => {
     return invoice;
 };
 
+const deleteInvoice = async(invoiceId) => {
+    const invoice = await prismaClient.invoice.count({
+        where : { id : invoiceId }
+
+    });
+
+    if(!invoice) throw new responseError(404, "Invoice Not Valid!");
+
+    await prismaClient.invoice.delete({
+        where : {
+            id : invoiceId
+        }
+    })
+}
+
+const getAllInvoice = async(payload) => {
+    payload = validate(getAllValidation, payload);
+    const skip = (payload.page - 1) * payload.size;
+
+    const invoices = await prismaClient.invoice.findMany({
+        include : {
+            customer : {
+                select : {
+                    id : true,
+                    name : true
+                }
+            }
+        },
+        take : payload.size,
+        skip,
+        orderBy : {
+            createdAt : "desc"
+        }
+    });
+
+    const totalItems = await prismaClient.invoice.count();
+
+    return {
+        paging : {
+            page : payload.page,
+            totalItems : totalItems,
+            totalPage: Math.ceil(totalItems / payload.size),
+        },
+        data : invoices
+    }
+}
+
+const updateInvoice = async (invoiceId, request) => {
+    request.id = invoiceId;
+    request = validate(updateInvoiceValidation, request);
+
+    const invoice = await prismaClient.invoice.findUnique({
+        where: { id: invoiceId },
+    });
+    if (!invoice) throw new responseError(404, "Invoice not found!");
+
+    const data = {};
+    const fields = ["invoiceNumber", "customerName", "email", "total", "issueDate", "status", "pdf"];
+
+    for (const f of fields) {
+        if (request[f] !== undefined && request[f] !== "undefined") {
+            data[f] = request[f];
+        }
+    }
+
+    const emailChanged = data.email !== undefined && data.email !== invoice.email;
+    if (!emailChanged) delete data.email;
+
+    if (Object.keys(data).length === 0) {
+        throw new responseError(400, "No data to update!");
+    }
+
+    let updated;
+    try {
+        updated = await prismaClient.$transaction(
+            async (tx) => {
+                let credentials = null;
+
+                if (emailChanged) {
+                    const username = generateBytes(8);
+                    const password = generateBytes(12);
+                    const hashedPassword = await bcrypt.hash(password, 10);
+
+                    await tx.user.update({
+                        where: { id: invoice.customerId },
+                        data: {
+                            email: data.email,
+                            username,
+                            password: hashedPassword,
+                            name: data.customerName ?? invoice.customerName,
+                        },
+                    });
+
+                    credentials = { username, password };
+                }
+
+                const result = await tx.invoice.update({
+                    where: { id: invoiceId },
+                    data,
+                });
+
+                if (credentials) {
+                    const kodeInvoice = `${result.invoiceNumber}.${Math.trunc(Number(result.total))}`;
+                    await sendAccAndInvoice(
+                        result.email,
+                        credentials.username,
+                        credentials.password,
+                        kodeInvoice
+                    );
+                }
+
+                return result;
+            },
+            { timeout: 20000 }
+        );
+    } catch (e) {
+        if (e.code === "P2002") {
+            throw new responseError(409, "Invoice number, email, or username already exists");
+        }
+        throw e;
+    }
+
+    if (data.pdf && data.pdf !== invoice.pdf) {
+        fs.unlink(path.join(pdfDirInvoice, path.basename(invoice.pdf)), () => {});
+    }
+
+    return updated;
+};
+
 export default { 
     createInvoice,
     getInvoice,
-    getInvoicePdf
+    getInvoicePdf,
+    deleteInvoice,
+    getAllInvoice,
+    updateInvoice
 }

@@ -37,6 +37,7 @@ const corsOptions = {
 web.use(cors(corsOptions));
 web.use(express.json());
 web.use(cookieParser());
+web.use("/assets/invoice", express.static(path.join(__dirname, "../../assets/invoice")));
 web.use(publicRouter);
 web.use(invoiceRouter);
 

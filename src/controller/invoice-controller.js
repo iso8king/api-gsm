@@ -257,8 +257,47 @@ const getInvoicePdfC = async(req,res,next) => {
     }
 }
 
+const deleteInvoiceC = async(req,res,next) => {
+    try {
+        const result = await invoiceService.deleteInvoice(req.params.id);
+        res.status(200).json({
+            data : "OK"
+        });
+    } catch (e) {
+        next(e);        
+    }
+}
+
+const getAllInvoiceC = async(req,res,next) => {
+    try {
+        const pagingConfig = {};
+        pagingConfig.size = req.query.size;
+        pagingConfig.page = req.query.page;
+        const result = await invoiceService.getAllInvoice(pagingConfig);
+        res.status(200).json({
+            data : result
+        });
+    } catch (e) {
+        next(e);        
+    }
+}
+
+const updateInvoiceC = async(req,res,next) => {
+    try {
+        const request = req.body;
+        if(req.file) request.pdf = req.file.filename;
+        const result = await invoiceService.updateInvoice(req.params.id, request);
+        res.status(200).json({ data: result }); 
+    } catch (e) {
+        next(e);        
+    }
+}
+
 export default{
     createInvoiceC,
     getInvoiceC,
-    getInvoicePdfC
+    getInvoicePdfC,
+    deleteInvoiceC,
+    getAllInvoiceC,
+    updateInvoiceC
 }
